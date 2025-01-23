@@ -27,6 +27,7 @@ const SearchResults = (props) => {
                   ? saved(track)
                   : false
               }
+              addTrack={props.addTrack}
             />
           ))
         : null}

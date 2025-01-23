@@ -1,101 +1,156 @@
-import React, {useState, useEffect} from "react"   
-import styles from "../mainSegment.module.css"
-
-import Track from "../../searchResults/Track"
+import React, { useState, useEffect } from "react";
+import styles from "../mainSegment.module.css";
+import Track from "../../searchResults/Track";
+import SpotifyApi from "../../../eiglAufServerSeite";
 
 const CurrentPlaylist = (props) => {
-   
-    const [playlist, setPlaylist] = useState(props.playlist);
-    useEffect(() => {
-        const h1 = document.querySelector(".inputToggle2");
-        if(h1){
-            h1.textContent = props.playlist.playlistName;
-            setPlaylist(props.playlist)
-        }
-    },[props.playlist])
+  const [playlist, setPlaylist] = useState(props.playlist);
+  const [isEditing, setIsEditing] = useState(false);
 
-    const editInfo = (event) => {
-        let h1 = document.querySelector(".inputToggle2");
-        let inputs = document.querySelectorAll(".inputToggle");
-        let editBtn = document.getElementById("editBtn");
+  useEffect(() => {
+    setPlaylist(props.playlist);
+  }, [props.playlist]);
 
-        if(event.target.textContent === "Edit"){
-            h1.contentEditable = "true";
-            h1.style = "pointer-events:all; background-color:#4f4f4f; border:1px solid silver;"
-            editBtn.textContent = "Done";
-            for(let input of inputs){
-                input.style = "pointer-events:all; background-color:#4f4f4f; border:1px solid silver;"
-            }
-        }else{
-            h1.contentEditable = "false";
-            h1.style = "pointer-events:none; background-color:#2f2f2f; border:none;"
-            editBtn.textContent = "Edit";
-            for(let input of inputs){
-                input.style = "pointer-events:none; background-color:#2f2f2f; border:none;"
-            }
-            props.stateSetter({"updateSavedPlaylists":true});
-            props.stateSetter({"currentPlaylist":playlist});
-        }
+  const handleEditClick = (value, e) => {
+    if (isEditing) {
+      setPlaylist(props.playlist);
     }
+    setIsEditing(value);
+  };
 
-    const handleChange = (event) => {
-        const prop = event.target.id;
-        let value;
-        if(prop === "playlistName"){
-            
-            if(event.target.textContent.length > 30){
-                event.target.textContent = playlist.playlistName
-                return;
-            }else{
-                
-                let h1 = document.querySelector(".inputToggle2");
-                value = h1.textContent;
-                h1.innerHtml = "";
-            }
-        }else{
-            value = event.target.value;
-        }
-        playlist[prop] = value;
-        setPlaylist({...playlist})
-    }
-    return(
-        <div className={styles.currentPlaylistContainer}>
-            <div className={styles.h1div}>
-                <h1 contentEditable="false" id="playlistName" onInput={(e) => handleChange(e)} className={styles.currentPlaylistH1 + " inputToggle2"} textContent={playlist.playlistName}> </h1>
-                <div className={styles.buttonDiv}>
-                    <button onClick={(e) => editInfo(e)} id="editBtn" className={styles.button}>Edit</button>
-                    <button onClick={(e) => props.addToSpotify(playlist)} className={styles.button}>add to Spotify</button>
-                </div>
-                
-            </div>
-            <div className={styles.currentPlaylistInfo}>
-                <div className={styles.currentPlaylistData}>
-                    <label className={styles.currentPlaylistLabel}>Created: </label>
-                    <input className={styles.currentPlaylistInput} value={playlist.playlistCreation}></input>
-                </div>
-                <div className={styles.currentPlaylistData}>
-                    <label className={styles.currentPlaylistLabel}>Genre: </label>
-                    <input maxLength="30" onChange = {(e) => handleChange(e)} id="playlistGenre" className={styles.currentPlaylistInput+ " inputToggle"} value={playlist.playlistGenre}></input>
-                </div>
-                <div className={styles.currentPlaylistData}>
-                    <label className={styles.currentPlaylistLabel}>Tracks: </label>
-                    <input onChange = {(e) => handleChange(e)} className={styles.currentPlaylistInput} value={playlist.playlistLength}></input>
-                </div>
-            </div>
-            <div className={styles.currentPlaylistDescription}>
-                <label className={styles.descrLabel}>Description: </label>
-                <textarea maxLength="250" onChange = {(e) => handleChange(e)} id="playlistDescription" className={styles.descr + " inputToggle"} value={playlist.playlistDescription}></textarea>
-            </div>
-            <div className = {styles.currentPlaylistTracks}>
-                {playlist ? playlist.playlistTracks.map((track,index) => {
-                    return <Track index={index+1}key={track.name+"-"+index} track={track} updatePlaylist={props.updatePlaylist} search={false}/>
-                }):null}
-            </div>
-            <div>
-                <audio src="https://www.youtube.com/watch?v=vXYVfk7agqU&t=4973s" controls></audio>
-            </div>
+  const handleSaveClick = async (event) => {
+    let updateObj;
+
+    updateObj = {
+      name: playlist.playlistName,
+      description: playlist.playlistGenre,
+      tracks: playlist.playlistTracks,
+      id: playlist.spotifyId,
+    };
+    const spotifyId = playlist.spotifyId;
+    await SpotifyApi.updatePlaylistDetails(spotifyId, updateObj);
+    props.updateSavedPlaylists("update", playlist);
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (e) => {
+    const prop = e.target.id;
+    const updatedPlaylist = { ...playlist };
+    updatedPlaylist[prop] = e.target.value;
+    setPlaylist(updatedPlaylist);
+  };
+
+  const updatePlaylistTracks = async (direction, track) => {
+    const newPlaylist = { ...playlist };
+    console.log("remove track from playlist");
+    console.log("track = ", track);
+    newPlaylist.playlistTracks = newPlaylist.playlistTracks.filter(
+      (entry) => entry.id !== track.id
+    );
+    await SpotifyApi.removeTracksFromPlaylist(playlist.spotifyId, [track.uri]);
+    props.stateSetter({ currentPlaylist: newPlaylist });
+  };
+  console.log("playlist length = ", playlist.playlistTracks.length);
+  return (
+    <div className={styles.currentPlaylistContainer}>
+      <div className={styles.h1div}>
+        {isEditing ? (
+          <input
+            id="playlistName"
+            type="text"
+            value={playlist.playlistName}
+            onChange={(e) => handleInputChange(e)}
+            className={styles.currentPlaylistH1 + " inputToggle2"}
+          />
+        ) : (
+          <h1
+            id="playlistName"
+            className={styles.currentPlaylistH1 + " inputToggle2"}
+          >
+            {playlist.playlistName}
+          </h1>
+        )}
+        <div className={styles.buttonDiv}>
+          <button
+            onClick={(e) => {
+              handleEditClick(isEditing ? false : true, e);
+            }}
+            id="editBtn"
+            className={styles.button}
+          >
+            {isEditing ? "Cancel" : "Edit"}
+          </button>
+
+          <button
+            onClick={(e) => handleSaveClick(e)}
+            className={styles.button}
+            title={isEditing ? "Save Changes" : "Update on Spotify"}
+          >
+            {isEditing ? "Save" : "Update"}
+          </button>
         </div>
-    )
-}
+      </div>
+      <div className={styles.currentPlaylistInfo}>
+        <div className={styles.currentPlaylistData}>
+          <label className={styles.currentPlaylistLabel}>Created: </label>
+          <input
+            className={styles.currentPlaylistInput}
+            value={playlist.playlistCreation}
+            readOnly
+          />
+        </div>
+        <div className={styles.currentPlaylistData}>
+          <label className={styles.currentPlaylistLabel}>Genre: </label>
+          <input
+            maxLength="30"
+            onChange={(e) => handleInputChange(e)}
+            id="playlistGenre"
+            className={styles.currentPlaylistInput + " inputToggle"}
+            value={playlist.playlistGenre}
+          />
+        </div>
+        <div className={styles.currentPlaylistData}>
+          <label className={styles.currentPlaylistLabel}>Tracks: </label>
+          <input
+            onChange={(e) => handleInputChange(e)}
+            className={styles.currentPlaylistInput}
+            value={playlist.playlistLength}
+          />
+        </div>
+      </div>
+      <div className={styles.currentPlaylistDescription}>
+        <label className={styles.descrLabel}>Description: </label>
+        <textarea
+          maxLength="250"
+          onChange={(e) => handleInputChange(e)}
+          id="playlistDescription"
+          className={styles.descr + " inputToggle"}
+          value={playlist.playlistDescription}
+        ></textarea>
+      </div>
+      <div className={styles.currentPlaylistTracks}>
+        {playlist
+          ? playlist.playlistTracks.map((track, index) => {
+              return (
+                <Track
+                  index={index + 1}
+                  key={track.name + "-" + index}
+                  track={track}
+                  updatePlaylistTracks={updatePlaylistTracks}
+                  search={false}
+                />
+              );
+            })
+          : null}
+      </div>
+      <div>
+        <audio
+          src="https://www.youtube.com/watch?v=vXYVfk7agqU&t=4973s"
+          controls
+        ></audio>
+      </div>
+    </div>
+  );
+};
 
-export default CurrentPlaylist
+export default CurrentPlaylist;
