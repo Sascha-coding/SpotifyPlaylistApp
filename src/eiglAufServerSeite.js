@@ -1,7 +1,7 @@
 import { toNumber } from "lodash";
 import dateFormater from "./functionality/dateFormater";
 const clientKey = "6a0320cacbef48db91a6e5b4a52bbfb7";
-const redirectUrl = "http://localhost:3000/";
+const redirectUrl = "https://musicmusicmusic123.netlify.app/";
 
 class Spotifyy {
   constructor() {
